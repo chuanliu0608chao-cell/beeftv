@@ -107,6 +107,56 @@ func TestInlineRelaxationDoesNotLeakToRemoteProtocols(t *testing.T) {
 	}
 }
 
+// 调用方经常同时带上一个本地回环地址（例如 /api/resources/<id>/file）。声明式插件从
+// media.value 取素材，而 value 的解析顺序是「先 URL 后 dataUrl」——不把 URL 清空的话，
+// 内联出来的 data URL 会被这个上游拉不到的死地址盖掉，表现为上游一直等图直到超时。
+func TestAgnesVideoInlineOverridesLoopbackURL(t *testing.T) {
+	ctx := withProtocolRegistry(context.Background(), loadOfficialFallbackRegistry())
+	svc := newResourceTestService(t)
+	svc.mode = serviceModeLocal
+	svc.localResourceStorage = true
+	input := canvasGenerationInput{Mode: "video", Config: providerConfig{InterfaceType: "agnes-video"}}
+	input.ReferenceImages = []providerMedia{{
+		StorageKey: writeInlineTestImageResource(t, svc, "inline-with-url.png"),
+		URL:        "/api/resources/inline-with-url.png/file",
+	}}
+
+	policy := providerMediaHydrationPolicyFor(ctx, input)
+	if err := svc.hydrateGenerationMedia("user-1", &input, policy); err != nil {
+		t.Fatalf("内联失败: %v", err)
+	}
+	got := input.ReferenceImages[0]
+	if !strings.HasPrefix(got.DataURL, "data:image/png;base64,") {
+		t.Fatalf("期望内联 data URL，实际 %q", got.DataURL)
+	}
+	if strings.TrimSpace(got.URL) != "" {
+		t.Fatalf("内联优先时回环 URL 必须被清空，实际仍为 %q", got.URL)
+	}
+}
+
+// 内联要有体积上限，超限必须返回明确错误，不能静默截断后把一张坏图发给上游。
+func TestInlineMediaBudgetRejectsOversizedPayload(t *testing.T) {
+	ctx := withProtocolRegistry(context.Background(), loadOfficialFallbackRegistry())
+	svc := newResourceTestService(t)
+	svc.mode = serviceModeLocal
+	svc.localResourceStorage = true
+	input := canvasGenerationInput{Mode: "video", Config: providerConfig{InterfaceType: "agnes-video"}}
+	input.ReferenceImages = []providerMedia{{StorageKey: writeInlineTestImageResource(t, svc, "inline-budget.png")}}
+
+	policy := providerMediaHydrationPolicyFor(ctx, input)
+	if err := svc.hydrateGenerationMedia("user-1", &input, policy); err != nil {
+		t.Fatalf("基线内联失败: %v", err)
+	}
+	input.ReferenceImages[0].DataURL = "data:image/png;base64," + strings.Repeat("A", maxInlineMediaDataURLBytes+1)
+	if err := validateInlineMediaBudget(&input); err == nil {
+		t.Fatal("超出内联体积上限时应返回错误")
+	}
+	input.ReferenceImages[0].DataURL = "data:image/png;base64,AAAA"
+	if err := validateInlineMediaBudget(&input); err != nil {
+		t.Fatalf("体积在上限内不应报错: %v", err)
+	}
+}
+
 func TestAcceptsInlineMediaInLocalModeScope(t *testing.T) {
 	for _, protocol := range []string{"agnes-video", "agnes-video-v20"} {
 		if !acceptsInlineMediaInLocalMode(protocol) {

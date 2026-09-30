@@ -850,6 +850,20 @@ func (s *Service) hydrateGenerationMedia(userID string, input *canvasGenerationI
 		return s.hydrateProviderMedia(userID, input.Mask, policy)
 	}
 	if s.IsLocalMode() && acceptsInlineMediaInLocalMode(input.Config.InterfaceType) {
+		// 声明式插件从 media.value 取素材，而 value 的解析顺序是「先 URL 后 dataUrl」。
+		// 调用方往往同时带上一个本地回环地址（/api/resources/.../file），上游根本拉不到；
+		// 若不清空，内联出来的 data URL 会被这个死地址盖掉，表现为上游一直等图。
+		// 这里只在本能力范围内（本地模式 + 视频协议）让内联优先，不影响图片渠道既有行为。
+		for _, group := range [][]providerMedia{input.ReferenceImages, input.ReferenceVideos, input.ReferenceAudios} {
+			for index := range group {
+				if strings.HasPrefix(strings.TrimSpace(group[index].DataURL), "data:") {
+					group[index].URL = ""
+				}
+			}
+		}
+		if input.Mask != nil && strings.HasPrefix(strings.TrimSpace(input.Mask.DataURL), "data:") {
+			input.Mask.URL = ""
+		}
 		if err := validateInlineMediaBudget(input); err != nil {
 			return err
 		}
