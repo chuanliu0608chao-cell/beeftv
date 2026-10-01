@@ -87,6 +87,16 @@ var officialApplicationPolicies = map[string]PluginManagementView{
 	},
 }
 
+// trustedBuiltinDefaults lists trusted built-in applications the host ships
+// enabled out of the box. They are still user-toggleable: a user who saves a
+// personal choice keeps it (UserConfigured is true and the default is ignored).
+// Without an entry here, a fresh user gets userEnabled=false and
+// EffectiveEnabled=false, which silently hides the canvas "润色" entry for the
+// built-in prompt optimizer.
+var trustedBuiltinDefaults = map[string]bool{
+	PluginPromptOptimizer: true,
+}
+
 func pluginManagement(pluginID string, source string) PluginManagementView {
 	if strings.TrimSpace(source) == PluginOriginUploaded {
 		return PluginManagementView{
@@ -189,6 +199,8 @@ func (s *Service) pluginStateForUser(actor *model.User, pluginID string, items [
 				userEnabled = true
 			} else if hasRuntime && pluginID == WorkflowPluginRunningHub {
 				userEnabled = runtimePlugin.Status == "enabled"
+			} else if trustedBuiltinDefaults[pluginID] {
+				userEnabled = true
 			}
 		}
 	}

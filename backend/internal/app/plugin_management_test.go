@@ -117,3 +117,47 @@ func TestEditorShellReportsPlatformAvailableWithoutPlatformState(t *testing.T) {
 		t.Fatalf("editor shell reported as admin-disabled: %#v", state)
 	}
 }
+
+// Regression: prompt-optimizer was a user-scoped official application but it had
+// no default, so a fresh user received userEnabled=false and
+// effectiveEnabled=false. Because canvas-node-prompt-panel.tsx prefers
+// pluginStates over the local installation, the canvas "润色" button stayed
+// hidden even after the built-in installation existed.
+func TestPromptOptimizerIsOnByDefaultForFreshUser(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open("file:"+newID()+"?mode=memory&cache=shared"), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.AutoMigrate(&model.PluginPlatformState{}, &model.UserPluginState{}, &model.AdminAuditEvent{}); err != nil {
+		t.Fatal(err)
+	}
+	center, err := newPluginRuntime(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	svc := &Service{repo: repository.New(db), pluginRuntime: center}
+	user := &model.User{ID: "user-1", Role: model.UserRoleUser}
+
+	states, err := svc.PluginStatesForUser(user)
+	if err != nil {
+		t.Fatal(err)
+	}
+	state, ok := states[PluginPromptOptimizer]
+	if !ok {
+		t.Fatalf("prompt optimizer missing from plugin states: %#v", states)
+	}
+	if !state.PlatformAvailable || !state.CanToggle {
+		t.Fatalf("prompt optimizer should be a user-toggleable application, got %#v", state)
+	}
+	if !state.UserEnabled || !state.EffectiveEnabled {
+		t.Fatalf("prompt optimizer should default on for a fresh user, got %#v", state)
+	}
+
+	disabled, err := svc.SetUserPluginEnabled(user, PluginPromptOptimizer, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if disabled.UserConfigured != true || disabled.UserEnabled || disabled.EffectiveEnabled {
+		t.Fatalf("explicit user choice should override the default: %#v", disabled)
+	}
+}

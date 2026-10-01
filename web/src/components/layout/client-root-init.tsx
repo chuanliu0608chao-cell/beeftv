@@ -6,6 +6,7 @@ import { createModelChannel, useConfigStore } from "@/stores/use-config-store";
 import { navigateToSettings } from "@/lib/settings-navigation";
 import { initializeClientDiagnostics, setDiagnosticUserScope } from "@/services/diagnostics/client-diagnostics";
 import { fetchPluginRuntimeState, setUserPluginEnabled } from "@/services/api/plugins";
+import { listRegisteredPlugins } from "@/lib/plugins/plugin-registry";
 import { usePluginStore } from "@/stores/use-plugin-store";
 import { useAssetStore } from "@/stores/use-asset-store";
 import { useCanvasStore } from "@/stores/canvas/use-canvas-store";
@@ -28,7 +29,22 @@ export function ClientRootInit({ children }: { children: ReactNode }) {
     const setRuntimeStatuses = usePluginStore((state) => state.setRuntimeStatuses);
     const setPluginStates = usePluginStore((state) => state.setPluginStates);
     const pluginStoreHydrated = usePluginStore((state) => state.hydrated);
+    const ensureBuiltinPlugin = usePluginStore((state) => state.ensureBuiltinPlugin);
     const localMediaCleanupScope = useRef("");
+
+    // 内置可信插件（如 AI 提示词优化器）是前端 builtin，不会自动进入
+    // usePluginStore.installations，而画布提示词面板的「润色」按钮依赖
+    // installations + enabled 才会渲染。这里在应用启动、store 水合完成后，
+    // 把可信内置插件默认启用安装，确保冷启动直达画布也能看到入口。
+    // 若用户此前已存在该安装记录（可能手动关闭过），保留其状态。
+    useEffect(() => {
+        if (!pluginStoreHydrated) return;
+        for (const plugin of listRegisteredPlugins()) {
+            if ((plugin.manifest as { trusted?: boolean }).trusted) {
+                ensureBuiltinPlugin(plugin.manifest);
+            }
+        }
+    }, [pluginStoreHydrated, ensureBuiltinPlugin]);
 
     useEffect(() => () => {
         usePluginStore.getState().setRuntimeStatuses({});

@@ -13,6 +13,7 @@ type PluginStore = {
     runtimeStatuses: Record<string, string>;
     pluginStates: Record<string, PluginState>;
     ensurePlugin: (manifest: PluginManifest | PluginManifestV2) => void;
+    ensureBuiltinPlugin: (manifest: PluginManifest | PluginManifestV2) => void;
     setRuntimeStatuses: (statuses: Record<string, string>) => void;
     setPluginStates: (states: Record<string, PluginState>) => void;
     setEnabled: (pluginId: string, enabled: boolean) => void;
@@ -57,6 +58,15 @@ export const usePluginStore = create<PluginStore>()(
                     installations: state.installations.map((item) => item.manifest.id === pluginId ? { ...item, lastError: error, updatedAt: now() } : item),
                 })),
             removePlugin: (pluginId) => set((state) => ({ installations: state.installations.filter((item) => item.manifest.id !== pluginId) })),
+            ensureBuiltinPlugin: (manifest) =>
+                set((state) => {
+                    const current = state.installations.find((item) => item.manifest.id === manifest.id);
+                    // 若用户此前已安装（可能手动关闭过），保留其状态，不强制覆盖。
+                    if (current) return {};
+                    const timestamp = now();
+                    const next: PluginInstallation = { manifest, enabled: true, config: {}, installedAt: timestamp, updatedAt: timestamp };
+                    return { installations: [...state.installations, next] };
+                }),
         }),
         {
             name: PLUGIN_STORE_KEY,
