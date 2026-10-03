@@ -63,7 +63,9 @@ AI Native 自由画布
 
 ## 开始使用
 
-Windows 便携恢复包：[ZQR-漫剧工作台-1.6.14-windows-amd64.zip](dist/ZQR-漫剧工作台-1.6.14-windows-amd64.zip)。
+正式 Windows Release：[ZQR-漫剧工作台 v1.6.15](https://github.com/chuanliu0608chao-cell/beeftv/releases/tag/v1.6.15)。
+
+仓库内备用恢复包：[ZQR-漫剧工作台-1.6.14-windows-amd64.zip](dist/ZQR-漫剧工作台-1.6.14-windows-amd64.zip)。
 
 SHA-256：`1D1965232823854B57A89D5A2619D7DF03688F51BD7296F48AD2F496AE3AE0FA`
 
