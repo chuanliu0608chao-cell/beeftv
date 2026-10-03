@@ -1,0 +1,116 @@
+name: Release ZQR 漫剧工作台 (Windows)
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_version:
+        description: Must match VERSION, for example v1.6.14
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: zqr-windows-release
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build Windows portable package
+    runs-on: windows-2022
+    timeout-minutes: 90
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Read and validate version
+        id: meta
+        shell: pwsh
+        env:
+          CONFIRM_VERSION: ${{ inputs.confirm_version }}
+        run: |
+          $version = (Get-Content -LiteralPath VERSION -Raw).Trim()
+          if ($version -notmatch '^v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$') { throw "Invalid VERSION: $version" }
+          if ($env:CONFIRM_VERSION -ne $version) { throw "confirm_version must equal VERSION ($version)" }
+          "version=$version" >> $env:GITHUB_OUTPUT
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+          cache: true
+          cache-dependency-path: backend/go.sum
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.9
+
+      - name: Install CGO compiler
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: false
+          release: true
+          path-type: inherit
+          install: mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-binutils
+
+      - name: Build BeefTV
+        shell: pwsh
+        env:
+          CGO_ENABLED: '1'
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\build-beeftv-windows-release.ps1
+
+      - name: Assemble portable package
+        shell: pwsh
+        env:
+          RELEASE_VERSION: ${{ steps.meta.outputs.version }}
+        run: |
+          $root = (Resolve-Path .).Path
+          $stage = Join-Path $env:RUNNER_TEMP 'zqr-release'
+          New-Item -ItemType Directory -Force -Path $stage | Out-Null
+          Copy-Item -LiteralPath (Join-Path $root 'backend\cmd\desktop\build\bin\BeefTV.exe') -Destination $stage
+          Copy-Item -LiteralPath (Join-Path $root 'backend\cmd\desktop\build\bin\plugin-packages') -Destination $stage -Recurse
+          foreach ($name in @('README.md','QUICKSTART.md','LICENSE','VERSION')) {
+            $path = Join-Path $root $name
+            if (Test-Path -LiteralPath $path -PathType Leaf) { Copy-Item -LiteralPath $path -Destination $stage }
+          }
+          $zip = Join-Path $root ("ZQR-漫剧工作台-{0}-windows-amd64.zip" -f $env:RELEASE_VERSION)
+          if (Test-Path -LiteralPath $zip) { Remove-Item -LiteralPath $zip -Force }
+          Compress-Archive -Path (Join-Path $stage '*') -DestinationPath $zip -CompressionLevel Optimal
+          "artifact=$zip" >> $env:GITHUB_OUTPUT
+
+      - name: Upload portable package
+        uses: actions/upload-artifact@v4
+        with:
+          name: zqr-windows-package
+          path: ZQR-漫剧工作台-${{ steps.meta.outputs.version }}-windows-amd64.zip
+          if-no-files-found: error
+
+  publish:
+    name: Publish GitHub recovery release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download portable package
+        uses: actions/download-artifact@v4
+        with:
+          name: zqr-windows-package
+          path: dist
+
+      - name: Create or update release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.confirm_version }}
+        run: |
+          set -euo pipefail
+          if gh release view "$VERSION" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$VERSION" dist/*.zip --clobber --repo "$GITHUB_REPOSITORY"
+          else
+            gh release create "$VERSION" dist/*.zip \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "ZQR-漫剧工作台 $VERSION (Windows)" \
+              --generate-notes \
+              --latest
+          fi
