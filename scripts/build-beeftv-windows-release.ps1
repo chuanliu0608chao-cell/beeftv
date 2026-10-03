@@ -397,7 +397,7 @@ try {
         "-clean",
         "-trimpath",
         "-platform", "windows/amd64",
-        "-webview2", "download",
+        "-webview2", $(if ([string]::IsNullOrWhiteSpace($env:BEEFTV_WAILS_WEBVIEW2)) { "download" } else { $env:BEEFTV_WAILS_WEBVIEW2 }),
         "-nosyncgomod",
         "-m",
         "-ldflags", $ldflags

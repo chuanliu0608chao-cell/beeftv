@@ -23,6 +23,8 @@ jobs:
     name: Build Windows portable package
     runs-on: windows-2022
     timeout-minutes: 90
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
@@ -63,6 +65,7 @@ jobs:
         shell: pwsh
         env:
           CGO_ENABLED: '1'
+          BEEFTV_WAILS_WEBVIEW2: browser
         run: powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\build-beeftv-windows-release.ps1
 
       - name: Assemble portable package
@@ -105,7 +108,7 @@ jobs:
       - name: Create or update release
         env:
           GH_TOKEN: ${{ github.token }}
-          VERSION: ${{ inputs.confirm_version }}
+          VERSION: ${{ needs.build.outputs.version }}
         run: |
           set -euo pipefail
           if gh release view "$VERSION" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
