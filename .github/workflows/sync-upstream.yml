@@ -1,0 +1,65 @@
+name: Sync upstream BeefTV
+
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: sync-upstream
+  cancel-in-progress: true
+
+jobs:
+  sync:
+    name: Sync glanderness/BeefTV
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout this fork
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Merge upstream main
+        shell: bash
+        run: |
+          set -euo pipefail
+          branch="upstream-sync"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git remote add upstream https://github.com/glanderness/BeefTV.git
+          git fetch upstream main
+          git switch -C "$branch" origin/main
+          if git merge --no-edit upstream/main; then
+            if git diff --quiet origin/main HEAD; then
+              echo "Upstream is already synchronized."
+              echo "has_changes=false" >> "$GITHUB_ENV"
+              exit 0
+            fi
+            echo "has_changes=true" >> "$GITHUB_ENV"
+            git push --force-with-lease origin "$branch"
+          else
+            git merge --abort || true
+            echo "Upstream changes conflict with local changes; no branch was pushed."
+            exit 1
+          fi
+
+      - name: Open or update upstream sync PR
+        if: env.has_changes == 'true'
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: upstream-sync
+          base: main
+          delete-branch: false
+          title: "同步源作者 BeefTV 更新"
+          commit-message: "同步源作者 BeefTV 更新"
+          body: |
+            此 PR 由 GitHub Actions 自动创建，用于同步源作者仓库：
+
+            https://github.com/glanderness/BeefTV
+
+            请检查与本仓库本地修复的兼容性后再合并。若出现冲突，工作流会停止并等待人工处理。
