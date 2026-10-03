@@ -26,11 +26,21 @@ func taskSummariesForOutput(tasks []model.Task) []TaskSummary {
 }
 
 func taskSummaryForOutput(task model.Task) TaskSummary {
-	errorCode := persistedFailureErrorCode(task.Error, task.Stage)
+	// A stale error field must never turn a successful task into a failed task
+	// in the public read model. The task status is the source of truth for
+	// terminal outcome; error details are meaningful only for failed/cancelled
+	// tasks (or while an active task is still being reconciled).
+	failureDetails := task.Status == model.TaskStatusFailed || task.Status == model.TaskStatusCancelled
+	errorMessage := ""
+	errorCode := ""
+	if failureDetails {
+		errorMessage = safePersistedFailureMessage(task.Error)
+		errorCode = persistedFailureErrorCode(task.Error, task.Stage)
+	}
 	if errorCode == string(generation.CategoryUnknown) && !isContentModerationFailure(task.Error) {
 		errorCode = ""
 	}
-	if isContentModerationFailure(task.Error) && errorCode == "" {
+	if failureDetails && isContentModerationFailure(task.Error) && errorCode == "" {
 		errorCode = contentModerationErrorCode
 	}
 	previewURL, previewKind, previewPosterURL := taskMediaPreviewWithPoster(task.ResultJSON, task.Type)
@@ -51,7 +61,7 @@ func taskSummaryForOutput(task model.Task) TaskSummary {
 		ProviderCancelAttempts:    task.ProviderCancelAttempts,
 		ProviderCancelRequestedAt: task.ProviderCancelRequestedAt,
 		ProviderCancelledAt:       task.ProviderCancelledAt,
-		Error:                     safePersistedFailureMessage(task.Error),
+		Error:                     errorMessage,
 		ErrorCode:                 errorCode,
 		PreviewURL:                previewURL,
 		PreviewKind:               previewKind,
@@ -230,11 +240,16 @@ func taskForOutput(task model.Task) *model.Task {
 	task.LogicalModelRevisionID = ""
 	task.RouteID = ""
 	task.ChannelModelID = ""
-	task.ErrorCode = persistedFailureErrorCode(task.Error, task.Stage)
-	if task.ErrorCode == string(generation.CategoryUnknown) && !isContentModerationFailure(task.Error) {
+	if task.Status == model.TaskStatusFailed || task.Status == model.TaskStatusCancelled {
+		task.ErrorCode = persistedFailureErrorCode(task.Error, task.Stage)
+		if task.ErrorCode == string(generation.CategoryUnknown) && !isContentModerationFailure(task.Error) {
+			task.ErrorCode = ""
+		}
+		task.Error = safePersistedFailureMessage(task.Error)
+	} else {
 		task.ErrorCode = ""
+		task.Error = ""
 	}
-	task.Error = safePersistedFailureMessage(task.Error)
 	return &task
 }
 

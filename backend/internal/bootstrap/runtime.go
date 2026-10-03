@@ -352,7 +352,13 @@ func desktopCORSMiddleware() gin.HandlerFunc {
 			c.Header("Access-Control-Allow-Credentials", "true")
 			c.Header("Vary", "Origin, Access-Control-Request-Method, Access-Control-Request-Headers")
 		}
-		c.Header("Access-Control-Allow-Headers", "Accept, Content-Type, X-Desktop-Token, X-Canvas-Trace-ID, X-Idempotency-Key, X-Canvas-Scene, X-Canvas-Upstream-URL, X-Canvas-Upstream-Format, X-Canvas-Upstream-Base-URL")
+		// 修复：/api/ai/custom（自定义渠道中转）的客户端会带上
+		// `Authorization: Bearer <渠道密钥>`（见 web/src/services/api/custom-channel-relay.ts），
+		// 但这里没有把它列入允许头，浏览器预检失败后整个请求会以
+		// `TypeError: Failed to fetch`（无 HTTP 状态）结束，前端统一报“网络连接失败”。
+		// 因此本地桌面运行时下，凡走自定义渠道的 AI 调用（含提示词优化的文本模型）
+		// 都会失败。把 Authorization 加入允许头即可。
+		c.Header("Access-Control-Allow-Headers", "Accept, Content-Type, Authorization, X-Desktop-Token, X-Canvas-Trace-ID, X-Idempotency-Key, X-Canvas-Scene, X-Canvas-Upstream-URL, X-Canvas-Upstream-Format, X-Canvas-Upstream-Base-URL")
 		c.Header("Access-Control-Expose-Headers", "X-Request-ID, X-Canvas-Trace-ID, X-Diagnostic-Bundle-ID, X-Diagnostic-Schema-Version")
 		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
 		if c.Request.Method == http.MethodOptions {

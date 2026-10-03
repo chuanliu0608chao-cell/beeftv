@@ -18,6 +18,7 @@ test-evidence/
 *.sqlite
 *.sqlite3
 *.bak
+*.bak-*
 *.tmp
 /*.drawio.bkp
 /prompt-preferences-*-before.png
@@ -43,6 +44,9 @@ camera_language_guide.md
 /project-memory/
 .workbuddy/
 .worktrees/
+
+# Local imported skill cache copied from the developer machine.
+/D*AI-Skills*/
 
 # Local backend and desktop artifacts; never commit build output.
 build/depth-runtime/*.zip

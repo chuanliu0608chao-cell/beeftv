@@ -63,7 +63,7 @@ func TestTaskClientContextRequiresCreatePageMetadata(t *testing.T) {
 }
 
 func TestTaskSummaryExposesStablePaymentRequiredCode(t *testing.T) {
-	summary := taskSummaryForOutput(model.Task{Error: "上游模型服务返回 HTTP 402：当前账户余额不足"})
+	summary := taskSummaryForOutput(model.Task{Status: model.TaskStatusFailed, Error: "上游模型服务返回 HTTP 402：当前账户余额不足"})
 	if summary.ErrorCode != "quota_unknown" {
 		t.Fatalf("ErrorCode = %q, want quota_unknown", summary.ErrorCode)
 	}
@@ -99,6 +99,7 @@ func TestTaskSummaryProjectsClassifiedErrorWithoutRawBody(t *testing.T) {
 	summary := taskSummaryForOutput(model.Task{
 		ID:    "task-1",
 		Type:  "canvas_image",
+		Status: model.TaskStatusFailed,
 		Error: (providerHTTPError{StatusCode: 451, Body: "Your prompt or reference image was blocked by the content safety policy."}).Error(),
 	})
 	if summary.ErrorCode != "moderation_input" && summary.ErrorCode != "moderation_reference" {
@@ -109,6 +110,25 @@ func TestTaskSummaryProjectsClassifiedErrorWithoutRawBody(t *testing.T) {
 	}
 	if strings.Contains(summary.Error, "content safety policy") {
 		t.Fatalf("raw safety body leaked: %q", summary.Error)
+	}
+}
+
+func TestTaskOutputSuppressesStaleFailureOnSucceededTask(t *testing.T) {
+	task := model.Task{
+		ID:     "task-succeeded-with-stale-error",
+		Status: model.TaskStatusSucceeded,
+		Stage:  "已完成",
+		Error:  "模型不接受当前参数",
+		ResultJSON: `{"mode":"video","video":{"url":"https://cdn.example.com/result.mp4"}}`,
+	}
+
+	summary := taskSummaryForOutput(task)
+	if summary.Error != "" || summary.ErrorCode != "" {
+		t.Fatalf("stale failure leaked from succeeded summary: error=%q code=%q", summary.Error, summary.ErrorCode)
+	}
+	output := taskForOutput(task)
+	if output.Error != "" || output.ErrorCode != "" {
+		t.Fatalf("stale failure leaked from succeeded detail: error=%q code=%q", output.Error, output.ErrorCode)
 	}
 }
 

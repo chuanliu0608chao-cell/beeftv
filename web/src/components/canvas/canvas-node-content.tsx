@@ -81,13 +81,22 @@ export function CanvasNodeContent(props: CanvasNodeContentProps) {
     if (props.node.type === ART_CRITIQUE_NODE_TYPE) return <ArtCritiqueNodeContent node={props.node} />;
     if (props.node.type === MEDIA_CONVERSION_NODE_TYPE) return <MediaConversionNodeContent node={props.node} theme={props.theme} />;
     if (props.isBatchRoot) return <ImageNodeContent {...props} />;
-    if (props.node.metadata?.status === "loading") return <LoadingContent node={props.node} theme={props.theme} onOpenTaskDetails={props.onOpenTaskDetails} onCancelTask={props.onCancelTask} />;
-    if (props.node.metadata?.status === "error") return <ErrorContent node={props.node} theme={props.theme} onRetry={props.onRetry} onReloadResource={props.onReloadResource} onOpenTaskDetails={props.onOpenTaskDetails} />;
+    // A task result is authoritative over stale node-level error metadata.
+    // Older canvas records could keep status=error/errorDetails after the
+    // backend task had already succeeded, which made a valid image look like
+    // an upstream invalid_params failure.
+    const taskSucceeded = isSuccessfulTaskStatus(props.node.metadata?.taskStatus);
+    if (props.node.metadata?.status === "loading" && !taskSucceeded) return <LoadingContent node={props.node} theme={props.theme} onOpenTaskDetails={props.onOpenTaskDetails} onCancelTask={props.onCancelTask} />;
+    if (props.node.metadata?.status === "error" && !taskSucceeded) return <ErrorContent node={props.node} theme={props.theme} onRetry={props.onRetry} onReloadResource={props.onReloadResource} onOpenTaskDetails={props.onOpenTaskDetails} />;
 
     const pluginDefinition = getNodeDefinition(props.node.type)?.plugin;
     if (pluginDefinition) return <PluginCanvasNodeContent {...props} renderer={pluginDefinition.renderer} schema={pluginDefinition.schema} />;
     const Renderer = nodeContentRenderers[props.node.type];
     return Renderer ? <Renderer {...props} /> : <UnknownNodeContent theme={props.theme} />;
+}
+
+function isSuccessfulTaskStatus(status?: string) {
+    return status === "succeeded" || status === "completed" || status === "success";
 }
 
 function PluginCanvasNodeContent({ node, theme, renderer, schema }: CanvasNodeContentProps & { renderer: "declarative" | "sandbox"; schema: Record<string, unknown> }) {
@@ -410,9 +419,10 @@ function skillOutputModeLabel(mode?: string) {
 
 function ImageNodeContent(props: CanvasNodeContentProps) {
     if (!props.node.metadata?.content && props.isBatchRoot) {
-        const content = props.node.metadata?.status === "loading"
+        const taskSucceeded = isSuccessfulTaskStatus(props.node.metadata?.taskStatus);
+        const content = props.node.metadata?.status === "loading" && !taskSucceeded
             ? <LoadingContent node={props.node} theme={props.theme} />
-            : props.node.metadata?.status === "error"
+            : props.node.metadata?.status === "error" && !taskSucceeded
                 ? <ErrorContent node={props.node} theme={props.theme} onRetry={props.onRetry} onReloadResource={props.onReloadResource} />
                 : <EmptyImageContent {...props} isBatchRoot={false} />;
         return <BatchFrame batchPreviewNodes={props.batchPreviewNodes} batchCount={props.batchCount} batchExpanded={props.batchExpanded} batchOpening={props.batchOpening} batchRecovering={props.batchRecovering} theme={props.theme} onToggleBatch={props.onToggleBatch}>{content}</BatchFrame>;

@@ -9486,7 +9486,19 @@ html:not(.dark) .creation-studio-control:hover,
         padding: 10px 12px 8px;
     }
 
+    /* 修复：这里原来用 `display: none` 收起整个头部，头部的「润色 / 放大编辑 /
+       关闭」三个入口随之在画布上完全不可达——按钮仍渲染在 DOM 中
+       （aria-label="润色提示词"），但尺寸为 0，用户既看不到也点不到。
+       现在保留头部操作，只收起「模式标签」这一行装饰，兼顾原设计“低矮面板”
+       的意图与功能可达性。 */
     .canvas-node-composer--libtv > .canvas-node-composer-header {
+        display: flex;
+        min-height: 0;
+        height: auto;
+        margin-bottom: 4px;
+    }
+
+    .canvas-node-composer--libtv > .canvas-node-composer-header > .canvas-node-composer-mode {
         display: none;
     }
 

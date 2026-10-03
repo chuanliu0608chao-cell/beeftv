@@ -543,7 +543,7 @@ export default function TasksPage() {
                             {canQueryProviderTask(detailTask) ? <Button icon={<RefreshCw className="size-4" />} loading={actingId === detailTask.id} onClick={() => void queryProviderTask(detailTask)}>手动查询任务</Button> : null}
                             {isTaskFailed(detailTask) ? <Button icon={<Bug className="size-4" />} onClick={() => navigate(`/settings?section=diagnostics&taskId=${encodeURIComponent(detailTask.id)}${detailTask.projectId ? `&projectId=${encodeURIComponent(detailTask.projectId)}` : ""}`)}>导出诊断包</Button> : null}
                         </div>
-                        {detailTask.error || isTaskFailed(detailTask) ? (
+                        {isTaskFailed(detailTask) ? (
                             <GenerationFailureNotice
                                 explanation={explainGenerationError({ code: detailTask.errorCode, message: detailTask.error }, { taskId: detailTask.id, providerRequestId: detailTask.providerRequestId, model: detailTask.model, createdAt: detailTask.createdAt, stage: detailTask.stage })}
                                 context={{ taskId: detailTask.id, providerRequestId: detailTask.providerRequestId, model: detailTask.model, createdAt: detailTask.createdAt, stage: detailTask.stage }}

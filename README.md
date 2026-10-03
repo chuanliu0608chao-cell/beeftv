@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/readme/beeftv-wordmark.svg" width="640" alt="BeefTV — High-performance, lightweight, AI-native video workspace">
+  <img src="assets/readme/beeftv-wordmark.svg" width="640" alt="ZQR-漫剧工作台 — High-performance, lightweight, AI-native video workspace">
 </p>
 
 <p align="center"><strong>High-performance · Lightweight · AI Native</strong></p>
@@ -21,6 +21,10 @@
 https://github.com/user-attachments/assets/94fe6a39-6933-44b3-a9a9-dbc28b2d284c
 
 [下载产品演示视频](https://github.com/glanderness/BeefTV/releases/download/v1.5.5/beeftv-demo.mp4)
+
+## ZQR-漫剧工作台
+
+ZQR-漫剧工作台（BeefTV）是一个面向 AI 时代的视频与漫剧创作工作台。
 
 ## Why BeefTV
 

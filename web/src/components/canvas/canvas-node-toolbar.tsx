@@ -808,7 +808,7 @@ export function CanvasNodeInfoModal({
                             </section>
                         ) : null}
 
-                        {node.metadata?.errorDetails ? (
+                        {node.metadata?.errorDetails && !isSuccessfulTaskStatus(node.metadata?.taskStatus) ? (
                             <section className="canvas-node-inspector-error">
                                 <GenerationFailureNotice
                                     explanation={explainGenerationError(
@@ -824,6 +824,10 @@ export function CanvasNodeInfoModal({
             ) : null}
         </Modal>
     );
+}
+
+function isSuccessfulTaskStatus(status?: string) {
+    return status === "succeeded" || status === "completed" || status === "success";
 }
 
 function InfoRow({ label, value }: { label: string; value: ReactNode }) {
