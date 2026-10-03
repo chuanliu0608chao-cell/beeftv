@@ -63,11 +63,17 @@ AI Native 自由画布
 
 ## 开始使用
 
+Windows 便携恢复包：[ZQR-漫剧工作台-1.6.14-windows-amd64.zip](dist/ZQR-漫剧工作台-1.6.14-windows-amd64.zip)。
+
+SHA-256：`1D1965232823854B57A89D5A2619D7DF03688F51BD7296F48AD2F496AE3AE0FA`
+
+解压后运行 `BeefTV.exe` 或同目录快捷方式。作品数据默认建议放在 `D:\BeefTV-windows\BeefTV-data`；重新安装程序不会自动删除这个数据目录。
+
 下载桌面版及 Mac 首次打开说明见 [快速开始](QUICKSTART.md#下载与首次打开)。当前 Mac 安装包尚未完成 Apple 公证，首次打开可能需要在「隐私与安全性」中手动允许。
 
 ```bash
-git clone https://github.com/glanderness/BeefTV.git
-cd BeefTV
+git clone https://github.com/chuanliu0608chao-cell/beeftv.git
+cd beeftv
 ./scripts/build-beeftv-release.sh
 ```
 
