@@ -6,7 +6,7 @@ RUN apk add --no-cache nodejs zip
 
 WORKDIR /src
 COPY plugin-packages ./plugin-packages
-RUN ./plugin-packages/build-packages.sh
+RUN sh ./plugin-packages/build-packages.sh
 
 FROM golang:1.25-alpine AS backend-build
 
