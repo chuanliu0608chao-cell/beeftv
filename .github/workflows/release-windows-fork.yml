@@ -1,6 +1,9 @@
 name: Release ZQR 漫剧工作台 (Windows)
 
 on:
+  push:
+    tags:
+      - 'v*'
   workflow_dispatch:
     inputs:
       confirm_version:
@@ -32,7 +35,7 @@ jobs:
         run: |
           $version = (Get-Content -LiteralPath VERSION -Raw).Trim()
           if ($version -notmatch '^v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$') { throw "Invalid VERSION: $version" }
-          if ($env:CONFIRM_VERSION -ne $version) { throw "confirm_version must equal VERSION ($version)" }
+          if (-not [string]::IsNullOrWhiteSpace($env:CONFIRM_VERSION) -and $env:CONFIRM_VERSION -ne $version) { throw "confirm_version must equal VERSION ($version)" }
           "version=$version" >> $env:GITHUB_OUTPUT
 
       - name: Setup Go
